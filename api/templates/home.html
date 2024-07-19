@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Page</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .jumbotron {
+            background-color: #f0f8ff; /* Light AliceBlue */
+            color: #333;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-container {
+            height: 400px;
+            margin-bottom: 30px;
+        }
+
+        .garage-row {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+        }
+
+        .garage-row h5 {
+            margin-bottom: 10px;
+        }
+
+        .garage-row p {
+            margin-bottom: 5px;
+        }
+
+        .garage-row:nth-child(odd) {
+            background-color: #f9f9f9;
+        }
+
+        .garage-row:nth-child(even) {
+            background-color: #e9ecef;
+        }
+
+        .garage-details {
+            flex-grow: 1;
+        }
+
+        .garage-actions {
+            text-align: right;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #004bb5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="jumbotron mt-4 text-center">
+            <h1 class="display-4">TankBuddy</h1>
+            <p class="lead">Welcome! This is the home page.</p>
+            <hr class="my-4">
+            <p>Explore nearby garages and see their locations on the map.</p>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container" id="map"></div>
+
+        <!-- Garage Information -->
+        <div class="row">
+            {% for garage, distance in nearby_garages %}
+            <div class="col-12">
+                <div class="garage-row">
+                    <div class="garage-details">
+                        <h5>{{ garage.name }}</h5>
+                        <p><strong>Address:</strong> {{ garage.address }}</p>
+                        <p><strong>Phone:</strong> {{ garage.phone_number }}</p>
+                        <p><strong>Email:</strong> {{ garage.email }}</p>
+                        <p><strong>Distance:</strong> {{ distance|floatformat:2 }} km</p>
+                    </div>
+                    <div class="garage-actions">
+                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ garage.location.latitude }},{{ garage.location.longitude }}" class="btn btn-primary btn-sm" target="_blank">Get Directions</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Google Maps JavaScript API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDiHrKj-8FFB0_Z8a287zqQLPJiAN8_JXQ&callback=initMap" async defer></script>
+    <script>
+        let map;
+        function initMap() {
+            const center = { lat: -25.7461, lng: 28.1881 };  // Default center: Pretoria, TUT campus
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 14,
+                center: center
+            });
+
+            {% for garage, distance in nearby_garages %}
+            new google.maps.Marker({
+                position: { lat: {{ garage.location.latitude }}, lng: {{ garage.location.longitude }} },
+                map: map,
+                title: '{{ garage.name }}',
+                icon: {
+                    url: '{{ garage.logo_url }}', // Use the logo URL
+                    scaledSize: new google.maps.Size(40, 40), // Scale the logo to a reasonable size
+                    anchor: new google.maps.Point(20, 20) // Adjust the anchor point if necessary
+                }
+            });
+            {% endfor %}
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+    
+                // Send latitude and longitude to the server
+                fetch('/update_location/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        latitude: latitude,
+                        longitude: longitude
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Location updated successfully');
+                    } else {
+                        console.error('Failed to update location');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }, function(error) {
+                console.error('Geolocation error:', error);
+            });
+        } else {
+            console.warn('Geolocation is not supported by this browser.');
+        }
+    </script>
+</body>
+</html>
